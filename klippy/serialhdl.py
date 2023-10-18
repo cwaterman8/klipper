@@ -157,7 +157,7 @@ class SerialReader:
                     bustype="socketcan",
                 )
                 bus.send(set_id_msg)
-            except can.CanError as e:
+            except (can.CanError, os.error) as e:
                 logging.warn(
                     "%sUnable to open CAN port: %s", self.warn_prefix, e
                 )
@@ -263,6 +263,9 @@ class SerialReader:
 
     def get_msgparser(self):
         return self.msgparser
+
+    def get_serialqueue(self):
+        return self.serialqueue
 
     def get_default_command_queue(self):
         return self.default_cmd_queue

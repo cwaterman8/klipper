@@ -53,6 +53,10 @@ class Printer:
     command_error = gcode.CommandError
 
     def __init__(self, main_reactor, bglogger, start_args):
+        if sys.version_info[0] < 3:
+            logging.error("DangerKlipper requires Python 3")
+            sys.exit(1)
+
         self.bglogger = bglogger
         self.start_args = start_args
         self.reactor = main_reactor
@@ -150,7 +154,11 @@ class Printer:
     def _read_config(self):
         self.objects["configfile"] = pconfig = configfile.PrinterConfig(self)
         config = pconfig.read_main_config()
-        if self.bglogger is not None:
+        danger_options = self.load_object(config, "danger_options")
+        if (
+            self.bglogger is not None
+            and danger_options.log_config_file_at_startup
+        ):
             pconfig.log_config(config)
         # Create printer components
         for m in [pins, mcu]:
@@ -160,7 +168,8 @@ class Printer:
         for m in [toolhead]:
             m.add_printer_objects(config)
         # Validate that there are no undefined parameters in the config file
-        pconfig.check_unused_options(config)
+        error_on_unused = danger_options.error_on_unused_config_options
+        pconfig.check_unused_options(config, error_on_unused)
 
     def _build_protocol_error_message(self, e):
         host_version = self.start_args["software_version"]
@@ -424,14 +433,47 @@ def main():
         bglogger = queuelogger.setup_bg_logging(options.logfile, debuglevel)
     else:
         logging.getLogger().setLevel(debuglevel)
+    logging.info("=======================")
     logging.info("Starting Klippy...")
-    start_args["software_version"] = util.get_git_version()
+    git_info = util.get_git_version()
+    git_vers = git_info["version"]
+    extra_files = [
+        fname
+        for code, fname in git_info["file_status"]
+        if (
+            code in ("??", "!!")
+            and fname.endswith(".py")
+            and (
+                fname.startswith("klippy/kinematics/")
+                or fname.startswith("klippy/extras/")
+            )
+        )
+    ]
+    modified_files = [
+        fname for code, fname in git_info["file_status"] if code == "M"
+    ]
+    extra_git_desc = ""
+    if extra_files:
+        if not git_vers.endswith("-dirty"):
+            git_vers = git_vers + "-dirty"
+        if len(extra_files) > 10:
+            extra_files[10:] = ["(+%d files)" % (len(extra_files) - 10,)]
+        extra_git_desc += "\nUntracked files: %s" % (", ".join(extra_files),)
+    if modified_files:
+        if len(modified_files) > 10:
+            modified_files[10:] = ["(+%d files)" % (len(modified_files) - 10,)]
+        extra_git_desc += "\nModified files: %s" % (", ".join(modified_files),)
+    extra_git_desc += "\nBranch: %s" % (git_info["branch"])
+    extra_git_desc += "\nRemote: %s" % (git_info["remote"])
+    extra_git_desc += "\nTracked URL: %s" % (git_info["url"])
+    start_args["software_version"] = git_vers
     start_args["cpu_info"] = util.get_cpu_info()
     if bglogger is not None:
         versions = "\n".join(
             [
                 "Args: %s" % (sys.argv,),
-                "Git version: %s" % (repr(start_args["software_version"]),),
+                "Git version: %s%s"
+                % (repr(start_args["software_version"]), extra_git_desc),
                 "CPU: %s" % (start_args["cpu_info"],),
                 "Python: %s" % (repr(sys.version),),
             ]

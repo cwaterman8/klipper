@@ -161,6 +161,17 @@ class PrinterProbe:
             if "Timeout during endstop homing" in reason:
                 reason += HINT_TIMEOUT
             raise self.printer.command_error(reason)
+        # get z compensation from axis_twist_compensation
+        axis_twist_compensation = self.printer.lookup_object(
+            "axis_twist_compensation", None
+        )
+        z_compensation = 0
+        if axis_twist_compensation is not None:
+            z_compensation = axis_twist_compensation.get_z_compensation_value(
+                pos
+            )
+        # add z compensation to probe position
+        epos[2] += z_compensation
         self.gcode.respond_info(
             "probe at %.3f,%.3f is z=%.6f" % (epos[0], epos[1], epos[2])
         )
@@ -249,6 +260,7 @@ class PrinterProbe:
 
     def get_status(self, eventtime):
         return {
+            "name": self.name,
             "last_query": self.last_state,
             "last_z_result": self.last_z_result,
         }
@@ -450,24 +462,34 @@ class ProbeEndstopWrapper:
 # Helper code that can probe a series of points and report the
 # position at each point.
 class ProbePointsHelper:
-    def __init__(self, config, finalize_callback, default_points=None):
+    def __init__(
+        self,
+        config,
+        finalize_callback,
+        default_points=None,
+        option_name="points",
+    ):
         self.printer = config.get_printer()
         self.finalize_callback = finalize_callback
         self.probe_points = default_points
         self.name = config.get_name()
         self.gcode = self.printer.lookup_object("gcode")
         # Read config settings
-        if default_points is None or config.get("points", None) is not None:
+        if default_points is None or config.get(option_name, None) is not None:
             self.probe_points = config.getlists(
-                "points", seps=(",", "\n"), parser=float, count=2
+                option_name, seps=(",", "\n"), parser=float, count=2
             )
-        self.horizontal_move_z = config.getfloat("horizontal_move_z", 5.0)
+        def_move_z = config.getfloat("horizontal_move_z", 5.0)
+        self.default_horizontal_move_z = def_move_z
         self.speed = config.getfloat("speed", 50.0, above=0.0)
         self.use_offsets = False
         # Internal probing state
         self.lift_speed = self.speed
         self.probe_offsets = (0.0, 0.0, 0.0)
         self.results = []
+
+    def get_probe_points(self):
+        return self.probe_points
 
     def minimum_points(self, n):
         if len(self.probe_points) < n:
@@ -514,6 +536,8 @@ class ProbePointsHelper:
         probe = self.printer.lookup_object("probe", None)
         method = gcmd.get("METHOD", "automatic").lower()
         self.results = []
+        def_move_z = self.default_horizontal_move_z
+        self.horizontal_move_z = gcmd.get_float("HORIZONTAL_MOVE_Z", def_move_z)
         if probe is None or method != "automatic":
             # Manual probe
             self.lift_speed = self.speed

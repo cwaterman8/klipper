@@ -3,7 +3,7 @@
 # Copyright (C) 2018  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import os, logging
+import os, logging, io
 
 VALID_GCODE_EXTS = ["gcode", "g", "gco"]
 
@@ -144,7 +144,7 @@ class VirtualSD:
             self.current_file.close()
             self.current_file = None
             self.print_stats.note_cancel()
-        self.file_position = self.file_size = 0.0
+        self.file_position = self.file_size = 0
 
     # G-Code commands
     def cmd_error(self, gcmd):
@@ -155,7 +155,7 @@ class VirtualSD:
             self.do_pause()
             self.current_file.close()
             self.current_file = None
-        self.file_position = self.file_size = 0.0
+        self.file_position = self.file_size = 0
         self.print_stats.reset()
         self.printer.send_event("virtual_sdcard:reset_file")
 
@@ -214,7 +214,7 @@ class VirtualSD:
             if fname not in flist:
                 fname = files_by_lower[fname.lower()]
             fname = os.path.join(self.sdcard_dirname, fname)
-            f = open(fname, "r")
+            f = io.open(fname, "r", newline="")
             f.seek(0, os.SEEK_END)
             fsize = f.tell()
             f.seek(0)
