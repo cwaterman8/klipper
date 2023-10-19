@@ -1316,6 +1316,19 @@ The toolhead module is automatically loaded.
 [ACCEL_TO_DECEL=<value>] [SQUARE_CORNER_VELOCITY=<value>]`: Modify the
 printer's velocity limits.
 
+#### ⚠️ SET_KINEMATICS_LIMIT
+
+`SET_KINEMATICS_LIMIT [<X,Y,Z>_ACCEL=<value>] [<X,Y,Z>_VELOCITY=<value>]
+[SCALE=<0:1>]`: change the per-axis limits.
+
+This command is only available when `kinematics` is set to either
+[`limited_cartesian`](./Config_Reference.md#⚠️-cartesian-kinematics-with-limits-for-x-and-y-axes)
+or
+[`limited_corexy`](./Config_Reference.md#⚠️-corexy-kinematics-with-limits-for-x-and-y-axes).
+The velocity argument is not available on CoreXY. With no arguments, this
+commands reponds with the movement direction with the most acceleration or
+velocity.
+
 ### [tuning_tower]
 
 The tuning_tower module is automatically loaded.

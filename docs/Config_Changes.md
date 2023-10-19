@@ -8,6 +8,12 @@ All dates in this document are approximate.
 
 ## Changes
 
+20231019: `printer.kinematics` now accepts `limited_cartesian` and
+`limited_cartesian` and `limited_corexy` that enables `max_{x,y}_accel` and
+`max_{x,y}_velocity` (only for `limited_cartesian`). In the future, this
+functionality may be moved into the original kinematics module (as optional
+settings).
+
 20230801: The setting `fan.off_bellow` has been changed to `fan.min_power`.
 However, this change will not affect users who do not utilize this setting.
 With this update, a PWM scaling has been introduced between `min_power` and
